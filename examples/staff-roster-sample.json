@@ -1,0 +1,36 @@
+{
+  "entries": [
+    {
+      "property_id": null,
+      "staff_name": "Avery Johnson",
+      "department": "banquets",
+      "role": "Captain",
+      "shift_date": "2026-05-12",
+      "available": true
+    },
+    {
+      "property_id": null,
+      "staff_name": "Sofia Martinez",
+      "department": "banquets",
+      "role": "Server",
+      "shift_date": "2026-05-12",
+      "available": true
+    },
+    {
+      "property_id": null,
+      "staff_name": "Noah Williams",
+      "department": "bar",
+      "role": "Bartender",
+      "shift_date": "2026-05-12",
+      "available": true
+    },
+    {
+      "property_id": null,
+      "staff_name": "Liam Brown",
+      "department": "kitchen",
+      "role": "Sous Chef",
+      "shift_date": "2026-05-12",
+      "available": true
+    }
+  ]
+}

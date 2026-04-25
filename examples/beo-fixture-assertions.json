@@ -1,0 +1,27 @@
+{
+  "htmlFixturePath": "examples/distinct-jaguar-landrover-us-marriott-beo.html",
+  "pdfFixturePath": "examples/beo-us-market-marriott-style.pdf",
+  "htmlRequiredPatterns": [
+    "Time",
+    "Function",
+    "Exp/Gtd",
+    "BANQUET REMARKS",
+    "BILLING INSTRUCTIONS",
+    "ENGINEERING REMARKS",
+    "HOUSEKEEPING REMARKS",
+    "LOSS PREVENTION REMARKS",
+    "Director of Events",
+    "Event Manager / Coordinator"
+  ],
+  "pdfRequiredPatterns": [
+    "Time",
+    "Function",
+    "Exp/Gtd",
+    "FLOW OF EVENTS",
+    "KITCHEN REMARKS",
+    "ENG. REMARKS",
+    "H/K REMARKS",
+    "Meeting",
+    "Dinner"
+  ]
+}

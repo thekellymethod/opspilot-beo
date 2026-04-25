@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BEO - Acme Biotech Leadership Summit Dinner</title>
+    <style>
+      :root {
+        --ink: #1f1f1f;
+        --muted: #666;
+        --line: #d7d7d7;
+        --brand: #1a1a1a;
+        --brand-soft: #f4f4f4;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+        color: var(--ink);
+        background: #fff;
+      }
+      .page {
+        width: 210mm;
+        min-height: 297mm;
+        margin: 0 auto;
+        padding: 12mm 12mm 14mm;
+      }
+      .header {
+        border: 1px solid var(--line);
+        margin-bottom: 10px;
+      }
+      .header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 12px;
+        background: var(--brand);
+        color: #fff;
+      }
+      .hotel {
+        font-size: 20px;
+        letter-spacing: 0.4px;
+        font-weight: 700;
+      }
+      .doc-title {
+        text-transform: uppercase;
+        font-size: 12px;
+        letter-spacing: 1px;
+        font-weight: 600;
+      }
+      .header-body {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+      }
+      .panel {
+        padding: 10px 12px;
+        border-top: 1px solid var(--line);
+      }
+      .panel + .panel {
+        border-left: 1px solid var(--line);
+      }
+      .kvs {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .kvs td {
+        font-size: 11px;
+        padding: 3px 0;
+        vertical-align: top;
+      }
+      .kvs td:first-child {
+        color: var(--muted);
+        width: 45%;
+        padding-right: 8px;
+      }
+      .section {
+        border: 1px solid var(--line);
+        margin-bottom: 10px;
+      }
+      .section-title {
+        margin: 0;
+        padding: 7px 10px;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        background: var(--brand-soft);
+        border-bottom: 1px solid var(--line);
+      }
+      .section-body {
+        padding: 8px 10px;
+      }
+      table.grid {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      table.grid th, table.grid td {
+        border: 1px solid var(--line);
+        padding: 6px 7px;
+        font-size: 11px;
+        vertical-align: top;
+      }
+      table.grid th {
+        text-align: left;
+        background: #fafafa;
+        font-weight: 600;
+      }
+      .small { font-size: 10px; color: var(--muted); }
+      ul.compact {
+        margin: 0;
+        padding-left: 18px;
+      }
+      ul.compact li {
+        margin: 2px 0;
+        font-size: 11px;
+      }
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .footer {
+        margin-top: 8px;
+        font-size: 10px;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <section class="header">
+        <div class="header-top">
+          <div class="hotel">OpsPilot Grand Hotel</div>
+          <div class="doc-title">Banquet Event Order</div>
+        </div>
+        <div class="header-body">
+          <div class="panel">
+            <table class="kvs">
+              <tr><td>BEO #</td><td>BEO-2026-0503-001</td></tr>
+              <tr><td>Revision</td><td>1</td></tr>
+              <tr><td>Status</td><td>Confirmed</td></tr>
+              <tr><td>Created By</td><td>Sales & Events Office</td></tr>
+            </table>
+          </div>
+          <div class="panel">
+            <table class="kvs">
+              <tr><td>Property</td><td>OpsPilot Grand Hotel</td></tr>
+              <tr><td>Timezone</td><td>America/New_York</td></tr>
+              <tr><td>Billing Type</td><td>Master account</td></tr>
+              <tr><td>Deposit Status</td><td>Paid</td></tr>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Event Summary</h2>
+        <div class="section-body">
+          <table class="grid">
+            <tr>
+              <th>Event Name</th><th>Client</th><th>Event Date</th><th>Room</th>
+            </tr>
+            <tr>
+              <td>Acme Biotech Leadership Summit Dinner</td>
+              <td>Acme Biotech</td>
+              <td>2026-05-03 (Sunday)</td>
+              <td>Grand Ballroom A</td>
+            </tr>
+            <tr>
+              <th>Event Type</th><th>Expected / Guaranteed</th><th>Service Style</th><th>Primary Contact</th>
+            </tr>
+            <tr>
+              <td>Corporate Dinner</td>
+              <td>180 / 170</td>
+              <td>Plated</td>
+              <td>Jordan Lee · (555) 010-2211</td>
+            </tr>
+          </table>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Timeline</h2>
+        <div class="section-body">
+          <table class="grid">
+            <tr><th style="width: 20%">Time</th><th>Activity</th></tr>
+            <tr><td>15:00</td><td>Vendor load-in</td></tr>
+            <tr><td>16:30</td><td>AV soundcheck complete</td></tr>
+            <tr><td>17:30</td><td>Doors open / guest arrival</td></tr>
+            <tr><td>18:15</td><td>Welcome remarks</td></tr>
+            <tr><td>18:30</td><td>Dinner service begins</td></tr>
+            <tr><td>19:45</td><td>Dessert and coffee</td></tr>
+            <tr><td>20:15</td><td>Closing comments</td></tr>
+            <tr><td>21:00</td><td>Event concludes</td></tr>
+            <tr><td>22:00</td><td>Vendor strike complete</td></tr>
+          </table>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Menu</h2>
+        <div class="section-body">
+          <table class="grid">
+            <tr><th style="width: 25%">Course</th><th>Item</th><th style="width: 12%">Count</th></tr>
+            <tr><td>Reception</td><td>Artisan cheese display</td><td>180</td></tr>
+            <tr><td>Reception</td><td>Seasonal crudites with hummus</td><td>180</td></tr>
+            <tr><td>Salad</td><td>Baby arugula salad with citrus vinaigrette</td><td>170</td></tr>
+            <tr><td>Entree</td><td>Herb-roasted chicken with wild rice pilaf</td><td>110</td></tr>
+            <tr><td>Entree</td><td>Pan-seared salmon with lemon beurre blanc</td><td>45</td></tr>
+            <tr><td>Entree (Vegan)</td><td>Stuffed pepper</td><td>15</td></tr>
+            <tr><td>Dessert</td><td>Chocolate mousse tart</td><td>170</td></tr>
+            <tr><td>Beverage</td><td>Coffee and hot tea station</td><td>170</td></tr>
+          </table>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Operations Notes</h2>
+        <div class="section-body two-col">
+          <div>
+            <p><strong>Dietary / Allergens</strong></p>
+            <ul class="compact">
+              <li>12 vegetarian</li>
+              <li>9 gluten-free</li>
+              <li>4 dairy-free</li>
+              <li>2 nut allergy (strict no cross-contact)</li>
+            </ul>
+            <p><strong>Staffing</strong></p>
+            <ul class="compact">
+              <li>Minimum 9 banquet servers</li>
+              <li>2 bartenders (cocktail hour + dinner)</li>
+              <li>1 banquet captain</li>
+              <li>1 floor manager on duty</li>
+            </ul>
+          </div>
+          <div>
+            <p><strong>Equipment / Setup</strong></p>
+            <ul class="compact">
+              <li>18 round tables (10-top)</li>
+              <li>180 banquet chairs</li>
+              <li>1 stage riser (12x16)</li>
+              <li>2 wireless handheld microphones</li>
+              <li>1 podium, 1 projector + screen</li>
+            </ul>
+            <p><strong>Special Requests</strong></p>
+            <ul class="compact">
+              <li>VIP table near stage for 10 attendees</li>
+              <li>Allergy meals pre-marked and served first</li>
+              <li>Branded step-and-repeat at ballroom entrance</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2 class="section-title">Internal</h2>
+        <div class="section-body">
+          <table class="grid">
+            <tr><th style="width: 25%">Final Guarantee Due</th><td>2026-04-29</td></tr>
+            <tr><th>Internal Notes</th><td>Coordinate with AV vendor arrival at 14:45.</td></tr>
+          </table>
+          <p class="small" style="margin-top: 8px;">
+            Template note: this is a Marriott-style visual format sample generated for testing. Replace all values before operational use.
+          </p>
+        </div>
+      </section>
+
+      <div class="footer">
+        <span>OpsPilot Grand Hotel - Banquet Event Order</span>
+        <span>Page 1 of 1</span>
+      </div>
+    </div>
+  </body>
+</html>

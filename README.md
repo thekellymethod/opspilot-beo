@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# OpsPilot BEO (MVP)
 
-## Getting Started
+OpsPilot BEO converts BEO documents into structured operations, deterministic department tasking, and concise briefings.
 
-First, run the development server:
+## MVP Scope
+
+1. Accept BEO (`PDF` or pasted text)
+2. Extract/normalize event data
+3. Generate tasks by department (`kitchen`, `banquets`, `bar`)
+4. Generate daily + pre-event briefings
+5. Detect and alert on revisions
+
+## Stack
+
+- Next.js App Router
+- API routes (Node runtime)
+- PostgreSQL/Supabase schema in `supabase/schema.sql`
+- Tailwind CSS UI
+- OpenAI-compatible parser with deterministic fallback
+
+## Setup
+
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Copy env template:
+
+```bash
+cp .env.example .env.local
+```
+
+3. Apply DB schema in your Supabase SQL editor:
+
+- `supabase/schema.sql`
+
+4. Run:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## API Endpoints
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `POST /api/beo/upload` — creates `beo_sources`, runs pipeline, auto-promotes only when validation + routing allow
+- `POST /api/beo/parse` — same pipeline for pasted text (immutable source row)
+- `POST /api/beo/sources/[id]/promote` — body `{ "humanApproved": true }` or merged `normalized` after manager review
+- `POST /api/events/[id]/generate-tasks`
+- `POST /api/events/[id]/detect-changes`
+- `GET /api/events/[id]/briefing` — query `level=executive|management|department`; body includes `briefingDoc` + legacy `briefing` string
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## BEO extraction pipeline (controlled)
 
-## Learn More
+Stages: **intake (source)** → **raw text** → **cleanup** → **schema-bound AI extraction** (versioned prompt) → **normalization** → **validation** → **review routing** → optional **promote to live event**.
 
-To learn more about Next.js, take a look at the following resources:
+Core modules (starter layout):
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `src/lib/beo/types.ts`
+- `src/lib/beo/schema.ts`
+- `src/lib/beo/prompt.ts` (`buildBeoExtractionPrompt`, `BEO_EXTRACTION_PROMPT_VERSION`)
+- `src/lib/beo/extract.ts` (`runBeoExtraction`)
+- `src/lib/beo/normalize.ts` (`normalizeBeoFields`)
+- `src/lib/beo/validate.ts` (`validateBeoRecord`)
+- `src/lib/beo/review.ts` (`routeBeoForReview`)
+- `src/lib/beo/process.ts` (`processBeo`)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Integration (DB / PDF):
 
-## Deploy on Vercel
+- `src/lib/beo/extractRawTextFromPdf.ts`
+- `src/lib/beo/cleanBeoText.ts` (noise stripping, label standardization, dedupe)
+- `src/lib/beo/taskGenerator.ts` (deterministic `GeneratedTask[]` from `NormalizedBeoRecord`)
+- `src/lib/beo/changeDetector.ts` (`detectOperationalChanges` → operational consequences)
+- `src/lib/beo/briefingGenerator.ts` (`generateBriefing` — compressed `EventBriefing` + optional `?level=`)
+- `src/lib/beo/mapToPersistence.ts` (bridge to `event_tasks` / `alerts` enums)
+- `src/lib/beo/parsedBEOToNormalized.ts` (legacy rows without `normalized_json`)
+- `src/lib/beo/processBeoSource.ts` (orchestrator)
+- `src/lib/beo/sourceStore.ts` (`beo_sources` persistence)
+- `src/lib/beo/toParsedBEO.ts` — adapter to legacy `ParsedBEO` for task/alert code
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Legacy preview helper: `src/lib/beoParser.ts` (stateless; prefer pipeline + source for production).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Optional env: `BEO_PROPERTY_PROFILE_JSON` — property timezone, field aliases, service aliases, room capacities (see `src/lib/beo/propertyProfile.ts`).
+
+## Core Modules
+
+- `src/lib/beoParser.ts` (legacy / preview)
+
+## Screens
+
+- Dashboard: `/`
+- Upload/Intake: `/upload`
+- Event detail: `/events/[id]`
+- Briefing view: `/events/[id]/briefing`

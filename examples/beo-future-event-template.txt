@@ -1,0 +1,91 @@
+BANQUET EVENT ORDER (BEO)
+Property: OpsPilot Grand Hotel
+BEO #: BEO-2026-0503-001
+Revision: 1
+Status: Confirmed
+
+EVENT SUMMARY
+Event Name: Acme Biotech Leadership Summit Dinner
+Client Name: Acme Biotech
+Primary Contact: Jordan Lee
+Contact Email: jordan.lee@acmebiotech.com
+Contact Phone: (555) 010-2211
+Event Date: 2026-05-03
+Day of Week: Sunday
+Room Name: Grand Ballroom A
+Event Type: Corporate Dinner
+Expected Guests: 180
+Guaranteed Guests: 170
+Service Style: Plated
+Timezone: America/New_York
+
+TIMELINE
+15:00 Vendor load-in
+16:30 AV soundcheck complete
+17:30 Doors open / guest arrival
+18:15 Welcome remarks
+18:30 Dinner service begins
+19:45 Dessert and coffee
+20:15 Closing comments
+21:00 Event concludes
+22:00 Vendor strike complete
+
+MENU
+Reception
+- Artisan cheese display (serves 180)
+- Seasonal crudites with hummus (serves 180)
+
+Salad Course
+- Baby arugula salad with citrus vinaigrette (170)
+
+Entree Course
+- Herb-roasted chicken with wild rice pilaf (110)
+- Pan-seared salmon with lemon beurre blanc (45)
+- Vegan stuffed pepper (15)
+
+Dessert Course
+- Chocolate mousse tart (170)
+
+Beverage
+- Coffee and hot tea station (170)
+- Sparkling and still water on tables (180)
+
+DIETARY / ALLERGEN NOTES
+- 12 vegetarian
+- 9 gluten-free
+- 4 dairy-free
+- 2 nut allergy (strict no cross-contact)
+
+STAFFING NOTES
+- Minimum 9 banquet servers
+- 2 bartenders (cocktail hour + dinner)
+- 1 banquet captain
+- 1 floor manager on duty
+
+EQUIPMENT / SETUP
+- 18 round tables (10-top)
+- 180 banquet chairs
+- 1 stage riser (12x16)
+- 2 wireless handheld microphones
+- 1 podium
+- 1 projector + screen
+- 2 buffet backup stations (hot hold)
+
+SPECIAL REQUESTS
+- Keep all speeches under 5 minutes.
+- VIP table near stage for 10 attendees.
+- Gluten-free and nut-allergy meals pre-marked and served first.
+- Add branded step-and-repeat near ballroom entrance.
+
+BILLING / INTERNAL
+Billing Type: Master account
+Deposit Status: Paid
+Final Guarantee Due: 2026-04-29
+Internal Notes: Coordinate with AV vendor arrival at 14:45.
+
+# QUICK EDIT FIELDS (search/replace)
+# Event Date: 2026-05-03
+# Event Name: Acme Biotech Leadership Summit Dinner
+# Client Name: Acme Biotech
+# Room Name: Grand Ballroom A
+# Expected Guests: 180
