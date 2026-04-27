@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { listUpcomingEvents } from "@/lib/store";
+import { listEventsOutsideUpcomingWindow, listUpcomingEvents } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardEventsPage() {
   const today = new Date().toISOString().slice(0, 10);
-  const events = await listUpcomingEvents(today, 45);
+  const daysAhead = 45;
+  const events = await listUpcomingEvents(today, daysAhead);
+  const otherEvents = await listEventsOutsideUpcomingWindow(today, daysAhead);
   const headline = new Date(today + "T12:00:00").toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -27,7 +29,10 @@ export default async function DashboardEventsPage() {
               <h1 className="font-display mt-2 text-3xl font-semibold tracking-tight text-brand-champagne sm:text-4xl">
                 Upcoming on property
               </h1>
-              <p className="mt-2 max-w-xl text-sm text-brand-muted">{headline} + next 45 days</p>
+              <p className="mt-2 max-w-xl text-sm text-brand-muted">
+                {headline} + next {daysAhead} days. Events with past dates, dates beyond that window, or missing dates
+                appear under &quot;Also on file&quot; so nothing looks deleted when the extraction date is off.
+              </p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-3">
               <div className="rounded-2xl border border-brand-border bg-brand-night/40 px-5 py-3 text-center backdrop-blur-sm">
@@ -113,6 +118,42 @@ export default async function DashboardEventsPage() {
             ))}
           </ul>
         )}
+
+        {otherEvents.length > 0 ? (
+          <div className="mt-14">
+            <h2 className="font-display text-lg font-semibold text-brand-champagne/90">Also on file</h2>
+            <p className="mt-1 max-w-2xl text-sm text-brand-muted">
+              These events are stored but are outside the upcoming window or have a non-ISO event date (often from
+              incomplete parsing). Open one to fix the date or promote a revised BEO.
+            </p>
+            <ul className="mt-6 grid gap-3 sm:grid-cols-2">
+              {otherEvents.map((event) => (
+                <li key={event.id}>
+                  <article className="rounded-xl border border-white/10 bg-brand-night/25 px-4 py-3 text-sm">
+                    <p className="font-medium text-brand-champagne">{event.event_name}</p>
+                    <p className="mt-1 text-xs text-brand-muted">
+                      Date: <span className="text-brand-gold-dim">{event.event_date || "—"}</span>
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Link
+                        href={`/events/${event.id}`}
+                        className="rounded-lg border border-white/12 px-2 py-1 text-xs text-brand-champagne/90 hover:bg-white/5"
+                      >
+                        Event detail
+                      </Link>
+                      <Link
+                        href={`/dashboard/events/${event.id}/briefing`}
+                        className="rounded-lg border border-brand-gold/35 px-2 py-1 text-xs text-brand-gold-bright hover:bg-brand-gold/10"
+                      >
+                        Briefing
+                      </Link>
+                    </div>
+                  </article>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         <p className="mt-10 text-center text-[11px] text-brand-muted">
           Server-rendered briefing:{" "}

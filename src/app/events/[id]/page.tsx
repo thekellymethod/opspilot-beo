@@ -14,7 +14,14 @@ type EventPayload = {
     dietary_notes: string[];
     equipment: string[];
   };
-  tasks: Array<{ id: string; department: string; title: string; checklist: string[]; status: string }>;
+  tasks: Array<{
+    id: string;
+    department: string;
+    title: string;
+    checklist: string[];
+    checklist_done?: boolean[];
+    status: string;
+  }>;
   alerts: Array<{ id: string; severity: string; message: string }>;
   availableStaff?: Array<{ id: string; staff_name: string; department: "kitchen" | "banquets" | "bar"; role: string | null }>;
   assignedStaff?: Array<{
@@ -246,6 +253,22 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
     const json = (await response.json().catch(() => ({}))) as { error?: string };
     if (!response.ok) {
       setActionError(json.error ?? "Failed to update task.");
+      return;
+    }
+    await loadEventDetails(data.event.id);
+  }
+
+  async function toggleChecklistLine(taskId: string, index: number, done: boolean) {
+    if (!data) return;
+    setActionError(null);
+    const response = await fetch(`/api/events/${data.event.id}/tasks/${taskId}/checklist`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ index, done }),
+    });
+    const json = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) {
+      setActionError(json.error ?? "Failed to update checklist line.");
       return;
     }
     await loadEventDetails(data.event.id);
@@ -516,7 +539,23 @@ export default function EventDetailPage({ params }: { params: Promise<{ id: stri
                         <p className="text-brand-champagne">{task.title}</p>
                         <span className="text-xs text-brand-muted">Status: {task.status}</span>
                       </div>
-                      <p className="mt-1 text-xs text-brand-muted">{task.checklist.join(" · ")}</p>
+                      <ul className="mt-2 space-y-1.5 border-t border-white/5 pt-2">
+                        {task.checklist.map((line, idx) => {
+                          const checked = Boolean(task.checklist_done?.[idx]);
+                          return (
+                            <li key={`${task.id}-${idx}`} className="flex items-start gap-2 text-xs text-brand-muted">
+                              <input
+                                type="checkbox"
+                                className="mt-0.5 shrink-0"
+                                checked={checked}
+                                onChange={(e) => void toggleChecklistLine(task.id, idx, e.target.checked)}
+                                aria-label={`Checklist item ${idx + 1} for ${task.title}`}
+                              />
+                              <span className={checked ? "text-brand-champagne/55 line-through" : ""}>{line}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
                       <div className="mt-2 flex flex-wrap gap-2">
                         <button
                           type="button"

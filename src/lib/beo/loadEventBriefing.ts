@@ -1,12 +1,29 @@
+import { evaluateReadinessForEvent } from "@/lib/beo/readiness";
 import { generateBriefing, type BriefingLevel } from "@/lib/beo/briefingGenerator";
 import { buildBriefingMeta, type BriefingMeta, type BriefingUiStatus } from "@/lib/beo/briefingMeta";
 import { parsedBEOToNormalized } from "@/lib/beo/parsedBEOToNormalized";
 import { resolveBriefingBundle } from "@/lib/beo/resolveBriefingBundle";
 import type { NormalizedBeoRecord } from "@/lib/beo/types";
-import type { AlertRecord } from "@/lib/types";
-import { getEvent } from "@/lib/store";
+import type { AlertRecord, EventManagerNoteRecord } from "@/lib/types";
+import { getEvent, listAlerts, listEventConfirmations, listEventManagerNotes, listEventTasks } from "@/lib/store";
 
 export type EventStatus = BriefingUiStatus;
+
+export type BriefingOperationalOverview = {
+  readinessScore: number;
+  readinessLevel: string;
+  readinessReasons: string[];
+  tasksTotal: number;
+  tasksPending: number;
+  tasksComplete: number;
+  tasksBlocked: number;
+  checklistLinesDone: number;
+  checklistLinesTotal: number;
+  confirmationsRequired: number;
+  confirmationsAcknowledged: number;
+  alertsOpen: number;
+  alertsCriticalOpen: number;
+};
 
 export type EventBriefingPageData = {
   briefing: ReturnType<typeof generateBriefing>;
@@ -16,6 +33,9 @@ export type EventBriefingPageData = {
   operationalChanges: BriefingMeta["operationalChanges"];
   validation: BriefingMeta["validation"];
   versionMeta: BriefingMeta["versionMeta"];
+  eventId: string;
+  operationalOverview: BriefingOperationalOverview | null;
+  managerNotes: EventManagerNoteRecord[];
 };
 
 type StoredEventRecord = {
@@ -50,6 +70,48 @@ function formatEventDate(date: string | null, timezone = "America/Chicago"): str
 function buildLocation(stored: StoredEventRecord): string | null {
   const parts = [stored.property_name, stored.current_normalized_record.roomName].filter(Boolean) as string[];
   return parts.length ? parts.join(" · ") : null;
+}
+
+export async function buildBriefingOperationalOverview(eventId: string): Promise<BriefingOperationalOverview> {
+  const [readiness, tasks, confirmations, alerts] = await Promise.all([
+    evaluateReadinessForEvent(eventId),
+    listEventTasks(eventId, { includeArchived: false }),
+    listEventConfirmations(eventId),
+    listAlerts(eventId),
+  ]);
+
+  let checklistLinesTotal = 0;
+  let checklistLinesDone = 0;
+  for (const t of tasks) {
+    const n = t.checklist.length;
+    checklistLinesTotal += n;
+    const doneArr = t.checklist_done ?? [];
+    for (let i = 0; i < n; i += 1) {
+      if (doneArr[i]) checklistLinesDone += 1;
+    }
+  }
+
+  const required = confirmations.filter((c) => c.required);
+  const confirmationsAcknowledged = required.filter((c) => c.acknowledged).length;
+
+  const openAlerts = alerts.filter((a) => !a.resolved);
+  const criticalOpen = openAlerts.filter((a) => a.severity === "critical").length;
+
+  return {
+    readinessScore: readiness.score,
+    readinessLevel: readiness.level,
+    readinessReasons: readiness.reasons,
+    tasksTotal: tasks.length,
+    tasksPending: tasks.filter((t) => t.status === "pending").length,
+    tasksComplete: tasks.filter((t) => t.status === "complete").length,
+    tasksBlocked: tasks.filter((t) => t.status === "blocked").length,
+    checklistLinesDone,
+    checklistLinesTotal,
+    confirmationsRequired: required.length,
+    confirmationsAcknowledged,
+    alertsOpen: openAlerts.length,
+    alertsCriticalOpen: criticalOpen,
+  };
 }
 
 /**
@@ -210,6 +272,10 @@ export async function loadEventBriefing(
 
   const bundle = await resolveBriefingBundle(eventId, level);
   if (bundle) {
+    const [operationalOverview, managerNotes] = await Promise.all([
+      buildBriefingOperationalOverview(eventId),
+      listEventManagerNotes(eventId),
+    ]);
     return {
       briefing: bundle.briefingDoc,
       eventDate: formatEventDate(bundle.event.event_date, bundle.normalized.timezone),
@@ -218,6 +284,9 @@ export async function loadEventBriefing(
       operationalChanges: bundle.meta.operationalChanges,
       validation: bundle.meta.validation,
       versionMeta: bundle.meta.versionMeta,
+      eventId,
+      operationalOverview,
+      managerNotes,
     };
   }
 
@@ -242,6 +311,11 @@ export async function loadEventBriefing(
     level,
   });
 
+  const [operationalOverview, managerNotes] = await Promise.all([
+    buildBriefingOperationalOverview(stored.id),
+    listEventManagerNotes(stored.id),
+  ]);
+
   return {
     briefing,
     eventDate: formatEventDate(stored.event_date, stored.current_normalized_record.timezone),
@@ -250,5 +324,8 @@ export async function loadEventBriefing(
     operationalChanges: meta.operationalChanges,
     validation: meta.validation,
     versionMeta: meta.versionMeta,
+    eventId: stored.id,
+    operationalOverview,
+    managerNotes,
   };
 }

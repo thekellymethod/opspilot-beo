@@ -66,6 +66,9 @@ export default async function EventBriefingRoutePage({ params, searchParams }: P
         operationalChanges={data.operationalChanges}
         validation={data.validation}
         versionMeta={data.versionMeta}
+        operationalOverview={data.operationalOverview}
+        managerNotes={data.managerNotes}
+        eventId={data.eventId}
       />
     </div>
   );

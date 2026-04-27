@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import type { BriefingOperationalOverview } from "@/lib/beo/loadEventBriefing";
 import type { BriefingValidationSummary, BriefingVersionMeta } from "@/lib/beo/briefingMeta";
 import type { OperationalChange } from "@/lib/beo/changeDetector";
 import type { BriefingDepartment, EventBriefing } from "@/lib/beo/briefingGenerator";
+import type { EventManagerNoteRecord } from "@/lib/types";
 
 export type EventBriefingPageProps = {
   briefing: EventBriefing;
@@ -13,6 +15,11 @@ export type EventBriefingPageProps = {
   operationalChanges?: OperationalChange[];
   validation?: BriefingValidationSummary | null;
   versionMeta?: BriefingVersionMeta | null;
+  /** Live command snapshot (tasks, checklist lines, confirmations, alerts, readiness). */
+  operationalOverview?: BriefingOperationalOverview | null;
+  managerNotes?: EventManagerNoteRecord[];
+  /** When set, managers can persist notes/flags for this event. */
+  eventId?: string | null;
   onRefresh?: () => void;
   onExport?: () => void;
 };
@@ -265,6 +272,192 @@ function readAckFromStorage(eventId: string | undefined, version: number | null 
   }
 }
 
+function pct(done: number, total: number): number {
+  if (total <= 0) return 0;
+  return Math.round((done / total) * 100);
+}
+
+function OperationalOverviewStrip({ overview }: { overview: BriefingOperationalOverview }) {
+  const taskDoneRate = pct(overview.tasksComplete, Math.max(1, overview.tasksTotal));
+  const checklistRate = pct(overview.checklistLinesDone, Math.max(1, overview.checklistLinesTotal));
+  const confirmRate =
+    overview.confirmationsRequired > 0
+      ? pct(overview.confirmationsAcknowledged, overview.confirmationsRequired)
+      : 100;
+
+  return (
+    <section className="eb-card mb-6 rounded-2xl border border-brand-burgundy/35 bg-gradient-to-r from-brand-surface/95 via-brand-navy/90 to-brand-burgundy/20 px-4 py-5 shadow-[0_8px_30px_rgba(0,0,0,0.25)] print:hidden sm:px-6">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-gold">Operational pulse</h2>
+        <p className="text-[11px] text-white/50">
+          Readiness {overview.readinessScore}/100 · {overview.readinessLevel}
+        </p>
+      </div>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-white/45">Readiness</p>
+          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-500/80 to-brand-gold"
+              style={{ width: `${overview.readinessScore}%` }}
+            />
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-white/45">
+            Tasks complete ({overview.tasksComplete}/{overview.tasksTotal})
+          </p>
+          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-blue-400/90" style={{ width: `${taskDoneRate}%` }} />
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-white/45">
+            Checklist lines ({overview.checklistLinesDone}/{overview.checklistLinesTotal})
+          </p>
+          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/10">
+            <div className="h-full rounded-full bg-brand-gold/90" style={{ width: `${checklistRate}%` }} />
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] uppercase tracking-wide text-white/45">
+            Confirmations · open alerts ({overview.confirmationsAcknowledged}/{overview.confirmationsRequired || 0} ·{" "}
+            {overview.alertsOpen}
+            {overview.alertsCriticalOpen ? ` · ${overview.alertsCriticalOpen} critical` : ""})
+          </p>
+          <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/10">
+            <div
+              className={cn("h-full rounded-full", overview.alertsOpen > 0 ? "bg-amber-400/90" : "bg-emerald-400/90")}
+              style={{
+                width: `${overview.confirmationsRequired > 0 ? confirmRate : overview.alertsOpen > 0 ? 35 : 100}%`,
+              }}
+            />
+          </div>
+        </div>
+      </div>
+      {overview.readinessReasons.length > 0 ? (
+        <ul className="mt-4 list-disc space-y-1 pl-5 text-xs text-white/65">
+          {overview.readinessReasons.slice(0, 6).map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
+function ManagerNotesBlock({
+  eventId,
+  initialNotes,
+  onSubmitted,
+}: {
+  eventId: string | null | undefined;
+  initialNotes: EventManagerNoteRecord[];
+  onSubmitted?: () => void;
+}) {
+  const [notes, setNotes] = useState(initialNotes);
+  const [body, setBody] = useState("");
+  const [section, setSection] = useState("extraction_gap");
+  const [flagged, setFlagged] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNotes(initialNotes);
+  }, [initialNotes]);
+
+  async function submit() {
+    if (!eventId || !body.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/events/${eventId}/manager-notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body: body.trim(), section, flagged, createdBy: "manager" }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string; note?: EventManagerNoteRecord };
+      if (!res.ok) throw new Error(json.error ?? "Failed to save note");
+      if (json.note) setNotes((prev) => [json.note!, ...prev]);
+      setBody("");
+      onSubmitted?.();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4 text-sm leading-6 text-white/75">
+      <p className="text-xs text-white/50">
+        Flag gaps in the BEO extraction, add clarifications, or capture floor decisions. Notes are stored on the event
+        record.
+      </p>
+      {error ? <p className="text-xs text-red-300">{error}</p> : null}
+      {notes.length === 0 ? (
+        <p className="text-xs text-white/45">No manager notes yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {notes.map((n) => (
+            <li
+              key={n.id}
+              className={cn(
+                "rounded-2xl border px-4 py-3",
+                n.flagged ? "border-amber-400/40 bg-amber-500/10" : "border-white/10 bg-white/[0.03]",
+              )}
+            >
+              <p className="text-[10px] uppercase tracking-wide text-white/45">
+                {n.section} · {new Date(n.created_at).toLocaleString()}
+              </p>
+              <p className="mt-1 text-sm text-white/88">{n.body}</p>
+            </li>
+          ))}
+        </ul>
+      )}
+      {eventId ? (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <label className="block text-[11px] uppercase tracking-wide text-white/45">Section tag</label>
+          <select
+            value={section}
+            onChange={(e) => setSection(e.target.value)}
+            className="mt-1 w-full rounded-lg border border-white/15 bg-brand-night/60 px-3 py-2 text-sm text-brand-champagne"
+          >
+            <option value="extraction_gap">Extraction / parsing gap</option>
+            <option value="timeline">Timeline</option>
+            <option value="menu">Menu & counts</option>
+            <option value="billing">Billing / guarantee</option>
+            <option value="staffing">Staffing</option>
+            <option value="general">General</option>
+          </select>
+          <label className="mt-3 block text-[11px] uppercase tracking-wide text-white/45">Note</label>
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            rows={3}
+            className="mt-1 w-full rounded-lg border border-white/15 bg-brand-night/60 px-3 py-2 text-sm text-brand-champagne"
+            placeholder="What needs to change or be double-checked on the floor?"
+          />
+          <label className="mt-3 flex items-center gap-2 text-xs text-white/70">
+            <input type="checkbox" checked={flagged} onChange={(e) => setFlagged(e.target.checked)} />
+            Flag for follow-up
+          </label>
+          <button
+            type="button"
+            disabled={saving || !body.trim()}
+            onClick={() => void submit()}
+            className="mt-3 rounded-xl border border-brand-gold/40 bg-brand-gold/15 px-4 py-2 text-xs font-semibold text-brand-champagne transition hover:bg-brand-gold/25 disabled:opacity-40"
+          >
+            {saving ? "Saving…" : "Save note"}
+          </button>
+        </div>
+      ) : (
+        <p className="text-xs text-white/45">Open this briefing from an event link to add saved notes.</p>
+      )}
+    </div>
+  );
+}
+
 function LeadAcknowledgmentBar({ eventId, version }: { eventId?: string; version?: number | null }) {
   const [ack, setAck] = useState<Record<AckLeadKey, boolean>>(() => readAckFromStorage(eventId, version));
 
@@ -336,6 +529,9 @@ export default function EventBriefingPage({
   operationalChanges = [],
   validation = null,
   versionMeta = null,
+  operationalOverview = null,
+  managerNotes = [],
+  eventId = null,
   onRefresh,
   onExport,
 }: EventBriefingPageProps) {
@@ -373,6 +569,8 @@ export default function EventBriefingPage({
           eventId={briefing.eventId}
           version={versionMeta?.currentVersion}
         />
+
+        {operationalOverview ? <OperationalOverviewStrip overview={operationalOverview} /> : null}
 
         <div className="eb-card mb-6 overflow-hidden rounded-[28px] border border-brand-border/80 bg-gradient-to-br from-white/[0.07] via-brand-surface/40 to-brand-burgundy/15 shadow-[0_12px_40px_rgba(0,0,0,0.35)] print:border-slate-300 print:bg-white print:shadow-none">
           <div className="border-b border-white/10 px-6 py-5 print:border-slate-300">
@@ -600,20 +798,12 @@ export default function EventBriefingPage({
             </SectionCard>
 
             <div className="print:hidden">
-              <SectionCard title="Command Notes">
-                <div className="space-y-3 text-sm leading-6 text-white/75">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
-                    Prioritize risk confirmation before guest arrival.
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
-                    If recent changes affect guest count, service style, or dietary handling, force acknowledgment from
-                    kitchen and banquet leads.
-                  </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
-                    Use this page as the compressed operational view, not as the source of truth. Source-of-truth
-                    updates should still write back to the event record.
-                  </div>
-                </div>
+              <SectionCard title="Manager notes & flags">
+                <ManagerNotesBlock
+                  eventId={eventId ?? briefing.eventId}
+                  initialNotes={managerNotes}
+                  onSubmitted={onRefresh}
+                />
               </SectionCard>
             </div>
           </div>

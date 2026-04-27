@@ -63,6 +63,8 @@ export interface EventTaskRecord {
   title: string;
   due_at: string | null;
   checklist: string[];
+  /** Same length as `checklist` when present; per-line completion for granular progress. */
+  checklist_done?: boolean[];
   status: "pending" | "acknowledged" | "blocked" | "complete";
   owner_employee_id?: string | null;
   owner_department?: Department | null;
@@ -122,6 +124,18 @@ export interface EventChangeViewRecord {
   title: string;
   summary: string;
   created_at: string;
+}
+
+/** Manager / EM annotations on an event (local JSON store until a DB table exists). */
+export interface EventManagerNoteRecord {
+  id: string;
+  event_id: string;
+  /** Free-form tag e.g. timeline, menu, billing, extraction_gap */
+  section: string;
+  body: string;
+  flagged: boolean;
+  created_at: string;
+  created_by: string | null;
 }
 
 export interface EventConfirmationRecord {

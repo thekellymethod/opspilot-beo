@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import EventBriefingPage, { type EventBriefingPageProps } from "@/components/beo/EventBriefingPage";
+import type { BriefingOperationalOverview } from "@/lib/beo/loadEventBriefing";
 import type { BriefingValidationSummary, BriefingVersionMeta } from "@/lib/beo/briefingMeta";
 import type { OperationalChange } from "@/lib/beo/changeDetector";
 import type { BriefingLevel, EventBriefing } from "@/lib/beo/briefingGenerator";
+import type { EventManagerNoteRecord } from "@/lib/types";
 
 type BriefingPayload = {
   briefing: string;
@@ -18,6 +20,9 @@ type BriefingPayload = {
   operationalChanges?: OperationalChange[];
   validation?: BriefingValidationSummary;
   versionMeta?: BriefingVersionMeta;
+  operationalOverview?: BriefingOperationalOverview;
+  managerNotes?: EventManagerNoteRecord[];
+  eventId?: string;
 };
 
 function formatEventDate(isoOrDate: string): string {
@@ -122,6 +127,9 @@ export default function BriefingPage({ params }: { params: Promise<{ id: string 
         operationalChanges={payload.operationalChanges ?? []}
         validation={payload.validation ?? null}
         versionMeta={payload.versionMeta ?? null}
+        operationalOverview={payload.operationalOverview ?? null}
+        managerNotes={payload.managerNotes ?? []}
+        eventId={payload.eventId ?? eventId}
         onRefresh={refresh}
         onExport={exportBriefing}
       />

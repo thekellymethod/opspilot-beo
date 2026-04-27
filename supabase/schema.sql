@@ -173,3 +173,6 @@ alter table event_versions add column if not exists normalized_json jsonb;
 
 -- If `event_tasks` already existed before archival support:
 alter table event_tasks add column if not exists archived boolean not null default false;
+
+-- Per checklist line completion (parallel array to `checklist` JSON strings)
+alter table event_tasks add column if not exists checklist_done jsonb null;

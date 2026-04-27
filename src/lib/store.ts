@@ -8,6 +8,7 @@ import type {
   AlertRecord,
   EventChangeViewRecord,
   EventConfirmationRecord,
+  EventManagerNoteRecord,
   EventReadinessSnapshot,
   EventRecord,
   EventStaffAssignmentRecord,
@@ -28,6 +29,7 @@ const memory = {
   briefings: [] as EventBriefingRow[],
   activities: [] as EventActivityRow[],
   confirmations: [] as EventConfirmationRecord[],
+  managerNotes: [] as EventManagerNoteRecord[],
 };
 
 const LOCAL_STORE_PATH = path.join(process.cwd(), ".opspilot-local-store.json");
@@ -50,6 +52,15 @@ async function loadLocalEventState(): Promise<void> {
     if (Array.isArray(parsed.confirmations)) {
       memory.confirmations = parsed.confirmations as EventConfirmationRecord[];
     }
+    if (Array.isArray(parsed.briefings)) {
+      memory.briefings = parsed.briefings as EventBriefingRow[];
+    }
+    if (Array.isArray(parsed.activities)) {
+      memory.activities = parsed.activities as EventActivityRow[];
+    }
+    if (Array.isArray(parsed.managerNotes)) {
+      memory.managerNotes = parsed.managerNotes as EventManagerNoteRecord[];
+    }
   } catch {
     // No local store yet; keep in-memory defaults.
   }
@@ -65,6 +76,9 @@ async function persistLocalEventState(): Promise<void> {
     eventStaffAssignments: memory.eventStaffAssignments,
     eventChangeViews: memory.eventChangeViews,
     confirmations: memory.confirmations,
+    briefings: memory.briefings,
+    activities: memory.activities,
+    managerNotes: memory.managerNotes,
   };
   await fs.writeFile(LOCAL_STORE_PATH, JSON.stringify(payload, null, 2), "utf8");
 }
@@ -221,6 +235,117 @@ export async function listUpcomingEvents(startDateISO: string, daysAhead = 30): 
     return [];
   }
   return (data ?? []) as EventRecord[];
+}
+
+const ISO_EVENT_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isSortableEventDate(value: string | null | undefined): value is string {
+  return Boolean(value && ISO_EVENT_DATE.test(value));
+}
+
+/**
+ * Events not shown in the default “upcoming” window: past dates, beyond the horizon,
+ * or rows with missing/non-ISO dates (common when extraction is incomplete).
+ */
+export async function listEventsOutsideUpcomingWindow(startDateISO: string, daysAhead = 45): Promise<EventRecord[]> {
+  const supabase = getSupabaseClient();
+  const end = new Date(`${startDateISO}T12:00:00`);
+  end.setDate(end.getDate() + Math.max(1, daysAhead));
+  const endDateISO = end.toISOString().slice(0, 10);
+
+  if (!supabase) {
+    await loadLocalEventState();
+    return memory.events
+      .filter(
+        (event) =>
+          !isSortableEventDate(event.event_date) ||
+          event.event_date < startDateISO ||
+          event.event_date > endDateISO,
+      )
+      .sort((a, b) => {
+        if (!isSortableEventDate(a.event_date) && !isSortableEventDate(b.event_date)) return 0;
+        if (!isSortableEventDate(a.event_date)) return 1;
+        if (!isSortableEventDate(b.event_date)) return -1;
+        return a.event_date < b.event_date ? 1 : -1;
+      });
+  }
+
+  const { data, error } = await supabase
+    .from("events")
+    .select(EVENT_LIST_COLUMNS)
+    .or(`event_date.lt.${startDateISO},event_date.gt.${endDateISO},event_date.is.null`)
+    .order("event_date", { ascending: false })
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[listEventsOutsideUpcomingWindow]", error.message);
+    }
+    return [];
+  }
+
+  const rows = (data ?? []) as EventRecord[];
+  return rows.filter((event) => {
+    if (!isSortableEventDate(event.event_date)) return true;
+    return event.event_date < startDateISO || event.event_date > endDateISO;
+  });
+}
+
+export async function listEventManagerNotes(eventId: string): Promise<EventManagerNoteRecord[]> {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    await loadLocalEventState();
+    return memory.managerNotes
+      .filter((n) => n.event_id === eventId)
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  }
+  const rows = await listEventActivity(eventId, 200);
+  return rows
+    .filter((r) => r.action === "manager_note")
+    .map((r) => {
+      const d = r.details;
+      return {
+        id: String((d as { noteId?: string }).noteId ?? r.id),
+        event_id: r.event_id,
+        section: String((d as { section?: string }).section ?? "general"),
+        body: String((d as { body?: string }).body ?? ""),
+        flagged: Boolean((d as { flagged?: boolean }).flagged),
+        created_at: r.created_at,
+        created_by: r.actor_label,
+      };
+    })
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+}
+
+export async function insertEventManagerNote(
+  input: Omit<EventManagerNoteRecord, "id" | "created_at">,
+): Promise<EventManagerNoteRecord> {
+  const supabase = getSupabaseClient();
+  const row: EventManagerNoteRecord = {
+    id: crypto.randomUUID(),
+    created_at: new Date().toISOString(),
+    ...input,
+  };
+  if (!supabase) {
+    await loadLocalEventState();
+    memory.managerNotes.push(row);
+    await persistLocalEventState();
+    return row;
+  }
+  await appendEventActivities([
+    {
+      event_id: input.event_id,
+      actor_label: input.created_by,
+      action: "manager_note",
+      details: {
+        noteId: row.id,
+        section: input.section,
+        body: input.body,
+        flagged: input.flagged,
+      },
+    },
+  ]);
+  return row;
 }
 
 export type ListEventTasksOptions = {
@@ -569,10 +694,12 @@ export async function updateEventReadiness(
 ): Promise<void> {
   const supabase = getSupabaseClient();
   if (!supabase) {
+    await loadLocalEventState();
     const ev = memory.events.find((e) => e.id === eventId);
     if (ev) {
       (ev as EventRecord).readiness_snapshot = snapshot;
     }
+    await persistLocalEventState();
     return;
   }
   const { error } = await supabase
@@ -636,6 +763,12 @@ export async function getEventTaskById(taskId: string): Promise<EventTaskRecord 
   return (data as EventTaskRecord | null) ?? null;
 }
 
+function alignChecklistDone(task: EventTaskRecord): void {
+  const n = task.checklist.length;
+  const cur = task.checklist_done ?? [];
+  task.checklist_done = Array.from({ length: n }, (_, i) => Boolean(cur[i]));
+}
+
 export async function updateEventTask(
   taskId: string,
   patch: Partial<
@@ -653,6 +786,7 @@ export async function updateEventTask(
       | "completed_by_employee_id"
       | "completion_note"
       | "priority"
+      | "checklist_done"
     >
   >,
 ): Promise<EventTaskRecord | null> {
@@ -662,12 +796,28 @@ export async function updateEventTask(
     const t = memory.tasks.find((x) => x.id === taskId);
     if (!t) return null;
     Object.assign(t, patch);
+    if (
+      "checklist_done" in patch ||
+      !Array.isArray(t.checklist_done) ||
+      t.checklist_done.length !== t.checklist.length
+    ) {
+      alignChecklistDone(t);
+    }
     await persistLocalEventState();
     return t;
   }
   const { data, error } = await supabase.from("event_tasks").update(patch).eq("id", taskId).select("*").maybeSingle();
   if (error) throw new Error(error.message);
-  return (data as EventTaskRecord | null) ?? null;
+  const updated = (data as EventTaskRecord | null) ?? null;
+  if (
+    updated &&
+    ("checklist_done" in patch ||
+      !Array.isArray(updated.checklist_done) ||
+      updated.checklist_done.length !== updated.checklist.length)
+  ) {
+    alignChecklistDone(updated);
+  }
+  return updated;
 }
 
 export async function insertEventBriefing(row: Omit<EventBriefingRow, "id" | "created_at">): Promise<EventBriefingRow> {
@@ -680,7 +830,9 @@ export async function insertEventBriefing(row: Omit<EventBriefingRow, "id" | "cr
   };
   const supabase = getSupabaseClient();
   if (!supabase) {
+    await loadLocalEventState();
     memory.briefings.push(record);
+    await persistLocalEventState();
     return record;
   }
   const { error } = await supabase.from("event_briefings").insert({
@@ -701,6 +853,7 @@ export async function insertEventBriefing(row: Omit<EventBriefingRow, "id" | "cr
 export async function getLatestEventBriefing(eventId: string): Promise<EventBriefingRow | null> {
   const supabase = getSupabaseClient();
   if (!supabase) {
+    await loadLocalEventState();
     const rows = memory.briefings
       .filter((b) => b.event_id === eventId)
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -742,7 +895,9 @@ export async function appendEventActivities(entries: Omit<EventActivityRow, "id"
     ...e,
   }));
   if (!supabase) {
+    await loadLocalEventState();
     memory.activities.push(...rows);
+    await persistLocalEventState();
     return;
   }
   const { error } = await supabase.from("event_activity").insert(
@@ -785,6 +940,7 @@ export async function listEventAcknowledgments(eventId: string): Promise<
 export async function listEventActivity(eventId: string, limit = 50): Promise<EventActivityRow[]> {
   const supabase = getSupabaseClient();
   if (!supabase) {
+    await loadLocalEventState();
     return memory.activities
       .filter((a) => a.event_id === eventId)
       .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
@@ -855,8 +1011,12 @@ export async function saveVersion(input: {
    * Revisions only attach to an existing event via explicit eventIdHint
    * (e.g. linked source reprocessing or manual promotion flow).
    */
-  const existingEvent = input.eventIdHint ? memory.events.find((e) => e.id === input.eventIdHint) : undefined;
-  const eventId = existingEvent?.id ?? input.eventIdHint ?? crypto.randomUUID();
+  if (!supabase) {
+    await loadLocalEventState();
+  }
+  const hintedId = input.eventIdHint?.trim() || null;
+  const existingRow = hintedId ? await getEvent(hintedId) : null;
+  const eventId = existingRow?.id ?? hintedId ?? crypto.randomUUID();
 
   const event: EventRecord = {
     id: eventId,
@@ -868,11 +1028,13 @@ export async function saveVersion(input: {
     event_type: input.parsed.event_type,
     status: "active",
     current_version_id: null,
-    created_at: new Date().toISOString(),
+    created_at: existingRow?.created_at ?? new Date().toISOString(),
   };
 
-  const currentVersions = memory.versions.filter((version) => version.event_id === eventId);
-  const nextVersion = Math.max(0, ...currentVersions.map((version) => version.version_number)) + 1;
+  const versionList = !supabase
+    ? memory.versions.filter((version) => version.event_id === eventId)
+    : await listEventVersions(eventId);
+  const nextVersion = Math.max(0, ...versionList.map((version) => version.version_number)) + 1;
   const versionRecord: EventVersionRecord = {
     id: crypto.randomUUID(),
     event_id: eventId,
@@ -885,11 +1047,10 @@ export async function saveVersion(input: {
   };
 
   if (!supabase) {
-    await loadLocalEventState();
-    if (!existingEvent) {
+    if (!existingRow) {
       memory.events.push(event);
     } else {
-      Object.assign(existingEvent, event);
+      Object.assign(existingRow, event);
     }
     memory.versions.push(versionRecord);
     const targetEvent = memory.events.find((item) => item.id === eventId)!;

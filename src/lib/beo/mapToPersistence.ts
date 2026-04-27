@@ -16,17 +16,21 @@ function parseDueAt(dueAt: string | null): string | null {
 }
 
 export function generatedTasksToEventTaskRecords(eventId: string, tasks: GeneratedTask[]): EventTaskRecord[] {
-  return tasks.map((task) => ({
-    id: crypto.randomUUID(),
-    event_id: eventId,
-    department: mapTaskDepartmentToDb(task.department),
-    title: task.department !== "banquets" && task.department !== "kitchen" && task.department !== "bar"
-      ? `[${task.department}] ${task.title}`
-      : task.title,
-    due_at: parseDueAt(task.dueAt),
-    checklist: [`Rule: ${task.sourceRule}`, task.description, ...task.checklist],
-    status: "pending" as const,
-  }));
+  return tasks.map((task) => {
+    const checklist = [`Rule: ${task.sourceRule}`, task.description, ...task.checklist];
+    return {
+      id: crypto.randomUUID(),
+      event_id: eventId,
+      department: mapTaskDepartmentToDb(task.department),
+      title: task.department !== "banquets" && task.department !== "kitchen" && task.department !== "bar"
+        ? `[${task.department}] ${task.title}`
+        : task.title,
+      due_at: parseDueAt(task.dueAt),
+      checklist,
+      checklist_done: checklist.map(() => false),
+      status: "pending" as const,
+    };
+  });
 }
 
 function mapImpactToDepartments(deps: OperationalChange["affectedDepartments"]): Department[] {
